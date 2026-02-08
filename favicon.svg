@@ -1,30 +1,43 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
   <defs>
-    <linearGradient id="g" x1="20" y1="20" x2="108" y2="108" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#89b4fa"/>
-      <stop offset="1" stop-color="#cba6f7"/>
+    <!-- Espresso: darker + warmer. -->
+    <linearGradient id="bg" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0b0b12"/>
+      <stop offset="1" stop-color="#171724"/>
     </linearGradient>
-    <filter id="s" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.25"/>
+    <radialGradient id="glow" cx="40" cy="34" r="86" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fab387" stop-opacity="0.20"/>
+      <stop offset="0.55" stop-color="#cba6f7" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#0b0b12" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="lens" cx="52" cy="50" r="36" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#89b4fa" stop-opacity="0.20"/>
+      <stop offset="0.55" stop-color="#cba6f7" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#11111b" stop-opacity="1"/>
+    </radialGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#000" flood-opacity="0.35"/>
     </filter>
   </defs>
 
   <!-- Rounded background -->
-  <rect x="10" y="10" width="108" height="108" rx="28" fill="url(#g)"/>
+  <rect x="10" y="10" width="108" height="108" rx="28" fill="url(#bg)"/>
+  <rect x="10" y="10" width="108" height="108" rx="28" fill="url(#glow)"/>
+  <rect x="10" y="10" width="108" height="108" rx="28" fill="none" stroke="#cba6f7" stroke-opacity="0.22" stroke-width="2"/>
 
-  <!-- Camera body -->
-  <g filter="url(#s)">
-    <rect x="24" y="44" width="80" height="56" rx="14" fill="#1e1e2e"/>
-    <rect x="36" y="34" width="26" height="14" rx="7" fill="#1e1e2e"/>
+  <!-- Lens -->
+  <g filter="url(#shadow)">
+    <circle cx="64" cy="66" r="34" fill="#0b0b12" fill-opacity="0.65" />
+    <circle cx="64" cy="66" r="30" fill="#11111b" />
+    <circle cx="64" cy="66" r="26" fill="url(#lens)" />
 
-    <!-- Lens -->
-    <circle cx="64" cy="72" r="20" fill="#11111b"/>
-    <circle cx="64" cy="72" r="13" fill="#89b4fa" fill-opacity="0.28"/>
-    <circle cx="64" cy="72" r="9" fill="#cdd6f4" fill-opacity="0.22"/>
+    <!-- subtle rings -->
+    <circle cx="64" cy="66" r="30" fill="none" stroke="#cba6f7" stroke-opacity="0.18" stroke-width="2"/>
+    <circle cx="64" cy="66" r="22" fill="none" stroke="#89b4fa" stroke-opacity="0.16" stroke-width="2"/>
 
-    <!-- Record dot -->
-    <circle cx="90" cy="58" r="5" fill="#f38ba8"/>
+    <!-- specular highlight -->
+    <circle cx="56" cy="58" r="6" fill="#cdd6f4" fill-opacity="0.16"/>
+    <circle cx="54" cy="56" r="2.8" fill="#cdd6f4" fill-opacity="0.22"/>
   </g>
 </svg>
-
