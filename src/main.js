@@ -166,23 +166,31 @@ async function startPreview() {
   state.stream = stream;
 
   const live = document.querySelector("#liveVideo");
-  const pipMini = document.querySelector("#pipVideo");
   if (live) live.srcObject = stream;
-  if (pipMini) pipMini.srcObject = stream;
 
   applyExpectedPreviewAspectRatio();
   await refreshDevicesAfterPermission();
   renderStatus();
 }
 
+function togglePreview() {
+  if (state.stream) stopPreview();
+  else startPreview();
+}
+
 function stopPreview() {
   if (!state.stream) return;
+  // If the live video is currently in native Picture-in-Picture, close it too.
+  // Do not await: this function is used by startPreview() as a fast sync cleanup.
+  try {
+    if (document.pictureInPictureElement) document.exitPictureInPicture?.().catch(() => {});
+  } catch {
+    // ignore
+  }
   stopTracks(state.stream);
   state.stream = null;
   const live = document.querySelector("#liveVideo");
-  const pipMini = document.querySelector("#pipVideo");
   if (live) live.srcObject = null;
-  if (pipMini) pipMini.srcObject = null;
   renderStatus();
 }
 
@@ -268,6 +276,18 @@ function stopRecording() {
   if (state.recordTimer) clearInterval(state.recordTimer);
   state.recordTimer = null;
   renderStatus();
+}
+
+function toggleRecording() {
+  if (state.recorder) {
+    stopRecording();
+    return;
+  }
+  startRecording().catch((e) => {
+    console.error(e);
+    alert("啟動錄製失敗，請查看 console。");
+    renderStatus();
+  });
 }
 
 function deleteRecording() {
@@ -648,18 +668,25 @@ function renderStatus() {
     recTime.textContent = state.recorder ? fmtMs(Date.now() - state.recordStartTs) : "00:00";
   }
 
-  const startBtn = document.querySelector("#startRec");
-  const stopBtn = document.querySelector("#stopRec");
-  const startPrev = document.querySelector("#startPreview");
-  const stopPrev = document.querySelector("#stopPreview");
+  const recToggle = document.querySelector("#recToggle");
+  const previewToggle = document.querySelector("#previewToggle");
   const pipBtn = document.querySelector("#pipBtn");
   const delBtn = document.querySelector("#deleteRec");
   const fsBtn = document.querySelector("#fullscreenPlayback");
 
-  if (startBtn) startBtn.disabled = !state.stream || !!state.recorder;
-  if (stopBtn) stopBtn.disabled = !state.recorder;
-  if (startPrev) startPrev.disabled = !!state.stream;
-  if (stopPrev) stopPrev.disabled = !state.stream || !!state.recorder;
+  if (recToggle) {
+    const recording = !!state.recorder;
+    recToggle.textContent = recording ? "停止" : "開始錄製";
+    recToggle.className = recording ? "btn" : "btn danger";
+    // When recording, allow stopping even if stream is in a weird state.
+    recToggle.disabled = recording ? false : !state.stream;
+  }
+  if (previewToggle) {
+    const on = !!state.stream;
+    previewToggle.textContent = on ? "關閉預覽" : "啟動預覽（要權限）";
+    previewToggle.className = on ? "btn" : "btn primary";
+    previewToggle.disabled = on && !!state.recorder;
+  }
   if (pipBtn) pipBtn.disabled = !state.stream;
   if (delBtn) delBtn.disabled = !state.recordedBlob || !!state.recorder;
   if (fsBtn) fsBtn.disabled = !state.recordedUrl;
@@ -832,14 +859,20 @@ function render() {
             h(
               "div",
               { class: "videoStage" },
-              h("video", { id: "liveVideo", playsinline: "true", autoplay: "true", muted: "true" }),
-              h("div", { class: "pip" }, h("video", { id: "pipVideo", playsinline: "true", autoplay: "true", muted: "true" }))
+              h("video", { id: "liveVideo", playsinline: "true", autoplay: "true", muted: "true" })
             ),
             h(
               "div",
               { class: "row", style: { marginTop: "12px" } },
-              h("button", { id: "startPreview", class: "btn primary", onclick: startPreview }, "啟動預覽（要權限）"),
-              h("button", { id: "stopPreview", class: "btn", onclick: stopPreview }, "關閉預覽"),
+              h(
+                "button",
+                {
+                  id: "previewToggle",
+                  class: state.stream ? "btn" : "btn primary",
+                  onclick: togglePreview,
+                },
+                state.stream ? "關閉預覽" : "啟動預覽（要權限）"
+              ),
               h(
                 "button",
                 { id: "pipBtn", class: "btn", onclick: togglePiP, title: "使用瀏覽器 Picture-in-Picture 浮動視窗" },
@@ -913,8 +946,15 @@ function render() {
             h(
               "div",
               { class: "row" },
-              h("button", { id: "startRec", class: "btn danger", onclick: startRecording }, "開始錄製"),
-              h("button", { id: "stopRec", class: "btn", onclick: stopRecording }, "停止"),
+              h(
+                "button",
+                {
+                  id: "recToggle",
+                  class: state.recorder ? "btn" : "btn danger",
+                  onclick: toggleRecording,
+                },
+                state.recorder ? "停止" : "開始錄製"
+              ),
               h(
                 "button",
                 {
