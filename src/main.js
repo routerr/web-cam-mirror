@@ -15,6 +15,17 @@ const state = {
   exports: new Map(), // key -> { blob, url }
 };
 
+const ui = {
+  mounted: false,
+  toastStack: null,
+  modalBackdrop: null,
+  modalTitle: null,
+  modalBody: null,
+  modalActions: null,
+  modalQueue: [],
+  modalOpen: false,
+};
+
 const exportPresets = [
   { key: "orig", label: "原始版本", w: null, h: null, fps: null },
   { key: "1080p30", label: "1080p / 30 FPS", w: 1920, h: 1080, fps: 30 },
@@ -40,6 +51,143 @@ function h(tag, attrs = {}, ...children) {
     el.append(child.nodeType ? child : document.createTextNode(String(child)));
   }
   return el;
+}
+
+function ensureUiMounted() {
+  if (ui.mounted) return;
+  ui.mounted = true;
+
+  const toastStack = h("div", { id: "toastStack", class: "toastStack", "aria-live": "polite" });
+
+  const modalBackdrop = h("div", {
+    id: "modalBackdrop",
+    class: "modalBackdrop",
+    style: { display: "none" },
+    "aria-hidden": "true",
+  });
+  const modal = h("div", { class: "modal", role: "dialog", "aria-modal": "true", "aria-labelledby": "modalTitle" });
+  const title = h("div", { class: "modalTitle", id: "modalTitle" });
+  const body = h("div", { class: "modalBody" });
+  const actions = h("div", { class: "modalActions" });
+
+  modal.append(title, body, actions);
+  modalBackdrop.append(modal);
+
+  // Backdrop click closes only if there is an explicit cancel action.
+  modalBackdrop.addEventListener("click", (e) => {
+    if (e.target !== modalBackdrop) return;
+    const cancel = actions.querySelector("[data-role='cancel']");
+    if (cancel) cancel.click();
+  });
+
+  // Esc closes only if there is an explicit cancel action.
+  window.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (!ui.modalOpen) return;
+    const cancel = actions.querySelector("[data-role='cancel']");
+    if (cancel) cancel.click();
+  });
+
+  document.body.append(toastStack, modalBackdrop);
+
+  ui.toastStack = toastStack;
+  ui.modalBackdrop = modalBackdrop;
+  ui.modalTitle = title;
+  ui.modalBody = body;
+  ui.modalActions = actions;
+}
+
+function notify(message, { variant = "info", timeoutMs = 2600 } = {}) {
+  ensureUiMounted();
+  const el = h("div", { class: `toast ${variant}` }, message);
+  ui.toastStack.append(el);
+
+  const t = setTimeout(() => {
+    try {
+      el.remove();
+    } catch {
+      // ignore
+    }
+  }, timeoutMs);
+
+  // Click to dismiss.
+  el.addEventListener("click", () => {
+    clearTimeout(t);
+    try {
+      el.remove();
+    } catch {
+      // ignore
+    }
+  });
+}
+
+function pumpModalQueue() {
+  if (ui.modalOpen) return;
+  const next = ui.modalQueue.shift();
+  if (!next) return;
+
+  ensureUiMounted();
+  ui.modalOpen = true;
+
+  ui.modalTitle.textContent = next.title || "通知";
+  ui.modalBody.textContent = "";
+  ui.modalBody.append(h("div", {}, next.message || ""));
+  ui.modalActions.textContent = "";
+
+  const close = (value) => {
+    ui.modalBackdrop.style.display = "none";
+    ui.modalBackdrop.setAttribute("aria-hidden", "true");
+    ui.modalOpen = false;
+    try {
+      next.resolve(value);
+    } catch {
+      // ignore
+    }
+    pumpModalQueue();
+  };
+
+  for (const b of next.buttons || []) {
+    const attrs = {
+      class: b.className || "btn",
+      onclick: () => close(b.value),
+    };
+    if (b.role) attrs["data-role"] = b.role;
+    ui.modalActions.append(h("button", attrs, b.label));
+  }
+
+  ui.modalBackdrop.style.display = "";
+  ui.modalBackdrop.setAttribute("aria-hidden", "false");
+  setTimeout(() => ui.modalActions.querySelector("button")?.focus?.(), 0);
+}
+
+function popup(message, { title = "通知", okText = "知道了", okClass = "btn primary" } = {}) {
+  return new Promise((resolve) => {
+    ui.modalQueue.push({
+      title,
+      message,
+      buttons: [{ label: okText, value: true, className: okClass }],
+      resolve,
+    });
+    pumpModalQueue();
+  });
+}
+
+function popupConfirm(
+  message,
+  { title = "確認", okText = "確認", cancelText = "取消", okClass = "btn danger", cancelClass = "btn" } = {}
+) {
+  return new Promise((resolve) => {
+    ui.modalQueue.push({
+      title,
+      message,
+      buttons: [
+        { label: cancelText, value: false, role: "cancel", className: cancelClass },
+        { label: okText, value: true, className: okClass },
+      ],
+      resolve,
+    });
+    pumpModalQueue();
+  });
 }
 
 function fmtMs(ms) {
@@ -156,7 +304,7 @@ function currentConstraintsFromUI() {
 
 async function startPreview() {
   if (!navigator.mediaDevices?.getUserMedia) {
-    alert("此瀏覽器不支援 navigator.mediaDevices.getUserMedia。");
+    void popup("此瀏覽器不支援 navigator.mediaDevices.getUserMedia。", { title: "不支援" });
     return;
   }
   if (state.stream) stopPreview();
@@ -221,11 +369,11 @@ async function refreshDevicesAfterPermission() {
 
 async function startRecording() {
   if (!state.stream) {
-    alert("請先啟動預覽（允許相機與麥克風）");
+    void popup("請先啟動預覽（要求相機與麥克風權限）", { title: "需要權限" });
     return;
   }
   if (!window.MediaRecorder) {
-    alert("此瀏覽器不支援 MediaRecorder。");
+    void popup("此瀏覽器不支援 MediaRecorder。", { title: "不支援" });
     return;
   }
 
@@ -245,7 +393,7 @@ async function startRecording() {
   };
   rec.onerror = (e) => {
     console.error(e);
-    alert("錄製發生錯誤，請查看 console。");
+    void popup("錄製發生錯誤，請查看 console。", { title: "錄製失敗" });
   };
   rec.onstop = () => {
     const blob = new Blob(state.chunks, { type: state.recordingMime || "video/webm" });
@@ -285,18 +433,23 @@ function toggleRecording() {
   }
   startRecording().catch((e) => {
     console.error(e);
-    alert("啟動錄製失敗，請查看 console。");
+    void popup("啟動錄製失敗，請查看 console。", { title: "錄製失敗" });
     renderStatus();
   });
 }
 
-function deleteRecording() {
+async function deleteRecording() {
   if (state.recorder) {
-    alert("錄製中無法刪除，請先停止錄製。");
+    void popup("錄製中無法刪除，請先停止錄製。", { title: "無法刪除" });
     return;
   }
   if (!state.recordedBlob) return;
-  if (!confirm("刪除目前的錄製與所有輸出版本？")) return;
+  const ok = await popupConfirm("刪除目前的錄製與所有輸出版本？", {
+    title: "刪除確認",
+    okText: "刪除",
+    cancelText: "取消",
+  });
+  if (!ok) return;
   clearRecordingState();
 }
 
@@ -305,7 +458,7 @@ async function togglePiP() {
   if (!live) return;
 
   if (!document.pictureInPictureEnabled) {
-    alert("此瀏覽器不支援 Picture-in-Picture。");
+    void popup("此瀏覽器不支援 Picture-in-Picture。", { title: "不支援" });
     return;
   }
 
@@ -317,7 +470,7 @@ async function togglePiP() {
     }
   } catch (e) {
     console.error(e);
-    alert("PiP 操作失敗（可能需要先播放或有瀏覽器限制）。");
+    void popup("PiP 操作失敗（可能需要先播放或有瀏覽器限制）。", { title: "PiP 失敗" });
   }
 }
 
@@ -588,7 +741,7 @@ async function transcodeViaCanvas({ w, h, fps, onProgress }) {
 
 async function generateExport(preset) {
   if (!state.recordedBlob) {
-    alert("目前沒有可輸出的錄影。");
+    void popup("目前沒有可輸出的錄影。", { title: "沒有錄影" });
     return;
   }
 
@@ -683,7 +836,7 @@ function renderStatus() {
   }
   if (previewToggle) {
     const on = !!state.stream;
-    previewToggle.textContent = on ? "關閉預覽" : "啟動預覽（要權限）";
+    previewToggle.textContent = on ? "關閉預覽" : "啟動預覽（要求權限）";
     previewToggle.className = on ? "btn" : "btn primary";
     previewToggle.disabled = on && !!state.recorder;
   }
@@ -871,7 +1024,7 @@ function render() {
                   class: state.stream ? "btn" : "btn primary",
                   onclick: togglePreview,
                 },
-                state.stream ? "關閉預覽" : "啟動預覽（要權限）"
+                state.stream ? "關閉預覽" : "啟動預覽（要求權限）"
               ),
               h(
                 "button",

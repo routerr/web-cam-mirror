@@ -404,6 +404,110 @@ select:focus {
   opacity: 0.6;
 }
 
+.toastStack {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2500;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  max-width: min(380px, calc(100vw - 32px));
+  border: 1px solid var(--border);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  border-radius: 16px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--ctp-text);
+  cursor: pointer;
+  animation: toastIn 0.18s ease-out both;
+}
+
+.toast.warn {
+  border-color: rgba(229, 200, 144, 0.34);
+}
+
+.toast.err {
+  border-color: rgba(243, 139, 168, 0.38);
+}
+
+@keyframes toastIn {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(17, 17, 27, 0.62);
+  backdrop-filter: blur(8px);
+}
+
+:root[data-flavor="iced_latte"] .modalBackdrop {
+  background: rgba(76, 79, 105, 0.32);
+}
+
+.modal {
+  width: min(560px, 100%);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 14px 14px 12px;
+  animation: modalIn 0.16s ease-out both;
+}
+
+@keyframes modalIn {
+  from {
+    transform: translateY(10px) scale(0.99);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.modalTitle {
+  font-family: var(--font-title);
+  font-size: 16px;
+  font-weight: 850;
+  letter-spacing: 0.2px;
+}
+
+.modalBody {
+  margin-top: 10px;
+  color: var(--ctp-text);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.modalActions {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
 .tag {
   font-size: 12px;
   border: 1px solid var(--border);
