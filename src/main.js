@@ -1170,6 +1170,11 @@ function render() {
   const heightEl = document.querySelector("#height");
   if (widthEl) widthEl.addEventListener("input", applyExpectedPreviewAspectRatio);
   if (heightEl) heightEl.addEventListener("input", applyExpectedPreviewAspectRatio);
+
+  const cameraEl = document.querySelector("#cameraId");
+  const micEl = document.querySelector("#micId");
+  if (cameraEl) cameraEl.addEventListener("change", () => { if (state.stream) startPreview(); });
+  if (micEl) micEl.addEventListener("change", () => { if (state.stream) startPreview(); });
 }
 
 render();
