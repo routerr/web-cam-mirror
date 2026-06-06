@@ -15,7 +15,7 @@ const contextMenu = document.getElementById("context-menu");
 const topCheck = document.getElementById("menu-top-check");
 
 // Initialize application
-async fn init() {
+async function init() {
   // 1. Fetch Local IP and construct URL
   try {
     localIp = await invoke("get_local_ip");
@@ -38,7 +38,7 @@ async fn init() {
 }
 
 // Copy URL helper
-async fn copyUrl() {
+async function copyUrl() {
   const url = urlEl.textContent;
   try {
     await navigator.clipboard.writeText(url);
@@ -55,7 +55,7 @@ async fn copyUrl() {
 }
 
 // Connect to local WebSocket signaling server
-fn connectSignaling() {
+function connectSignaling() {
   const wsUrl = `ws://localhost:${wsPort}`;
   console.log(`Connecting to signaling server: ${wsUrl}`);
   
@@ -106,7 +106,7 @@ fn connectSignaling() {
 }
 
 // Reset WebRTC and UI
-fn resetPeerConnection() {
+function resetPeerConnection() {
   if (pc) {
     pc.close();
     pc = null;
@@ -118,7 +118,7 @@ fn resetPeerConnection() {
 }
 
 // Handle incoming WebRTC offer from phone
-async fn handleOffer(offerSdp) {
+async function handleOffer(offerSdp) {
   resetPeerConnection();
   
   console.log("Creating peer connection...");
@@ -170,7 +170,7 @@ async fn handleOffer(offerSdp) {
 }
 
 // Setup custom Frameless controls
-fn setupWindowControls() {
+function setupWindowControls() {
   // Always-on-top initial UI checkmark
   topCheck.style.display = isAlwaysOnTop ? "inline" : "none";
   
@@ -221,7 +221,7 @@ fn setupWindowControls() {
 }
 
 // Toggle Always On Top
-async fn toggleAlwaysOnTop() {
+async function toggleAlwaysOnTop() {
   isAlwaysOnTop = !isAlwaysOnTop;
   try {
     await invoke("set_always_on_top", { alwaysOnTop: isAlwaysOnTop });
@@ -235,7 +235,7 @@ async fn toggleAlwaysOnTop() {
 }
 
 // Close App
-async fn closeApp() {
+async function closeApp() {
   try {
     await invoke("close_app");
   } catch (err) {

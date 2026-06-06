@@ -970,17 +970,17 @@ function renderOBSStreamingInstructions() {
     ),
     h("ol", { style: { paddingLeft: "20px", margin: "0 0 12px 0" } },
       h("li", {}, h("strong", {}, "步驟 1：在 Mac 上啟動伺服器")),
-      h("div", { style: { background: "rgba(0,0,0,0.2)", padding: "8px", borderRadius: "8px", fontFamily: "monospace", fontSize: "11px", marginBottom: "8px" },
+      h("div", { style: { background: "rgba(0,0,0,0.2)", padding: "8px", borderRadius: "8px", fontFamily: "monospace", fontSize: "11px", marginBottom: "8px" } },
         "python3 -m http.server " + httpServerPort + " --bind 0.0.0.0"
-      }),
+      ),
       h("li", {}, h("strong", {}, "步驟 2：找出 Mac 的本地 IP")),
-      h("div", { style: { background: "rgba(0,0,0,0.2)", padding: "8px", borderRadius: "8px", fontFamily: "monospace", fontSize: "11px", marginBottom: "8px" },
+      h("div", { style: { background: "rgba(0,0,0,0.2)", padding: "8px", borderRadius: "8px", fontFamily: "monospace", fontSize: "11px", marginBottom: "8px" } },
         "ipconfig getifaddr en0"
-      }),
+      ),
       h("li", {}, h("strong", {}, "步驟 3：在 iPhone Safari 開啟")),
-      h("div", { style: { background: "rgba(0,0,0,0.2)", padding: "8px", borderRadius: "8px", fontFamily: "monospace", fontSize: "11px", marginBottom: "8px" },
+      h("div", { style: { background: "rgba(0,0,0,0.2)", padding: "8px", borderRadius: "8px", fontFamily: "monospace", fontSize: "11px", marginBottom: "8px" } },
         url
-      }),
+      ),
       h("li", {}, h("strong", {}, "步驟 4：在 OBS 中捕捉")),
       h("ul", { style: { paddingLeft: "20px", margin: "6px 0" } },
         h("li", {}, "選項 A：OBS 新增「瀏覽器」來源，輸入上述 URL"),
