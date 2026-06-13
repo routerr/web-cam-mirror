@@ -318,20 +318,7 @@ async function startPreview() {
 
   applyExpectedPreviewAspectRatio();
   await refreshDevicesAfterPermission();
-  
-  localIp = await getMacLocalIp();
-  
   renderStatus();
-}
-
-async function getMacLocalIp() {
-  try {
-    const res = await fetch("https://ipinfo.io/json");
-    const data = await res.json();
-    return data.ip || "unknown";
-  } catch {
-    return "Unknown";
-  }
 }
 
 function togglePreview() {
@@ -340,7 +327,6 @@ function togglePreview() {
 }
 
 function stopPreview() {
-  stopBroadcast();
   if (!state.stream) return;
   // If the live video is currently in native Picture-in-Picture, close it too.
   // Do not await: this function is used by startPreview() as a fast sync cleanup.
@@ -857,7 +843,6 @@ function renderStatus() {
   if (pipBtn) pipBtn.disabled = !state.stream;
   if (delBtn) delBtn.disabled = !state.recordedBlob || !!state.recorder;
   if (fsBtn) fsBtn.disabled = !state.recordedUrl;
-  renderBroadcastStatus();
 }
 
 function renderMimeOptions() {
@@ -951,277 +936,6 @@ function renderExports() {
   box.append(list);
 }
 
-let localIp = "";
-let httpServerPort = 5173;
-
-function getLocalIp() {
-  return localIp || "請在終端機運行：ipconfig getifaddr en0";
-}
-
-function renderOBSStreamingInstructions() {
-  const ip = getLocalIp();
-  const url = `http://${ip}:${httpServerPort}`;
-  
-  return h(
-    "div",
-    { style: { fontSize: "13px", lineHeight: "1.5" } },
-    h("div", { style: { marginBottom: "12px" } }, 
-      h("strong", {}, "OBS 串流設定（iPhone → Mac）")
-    ),
-    h("ol", { style: { paddingLeft: "20px", margin: "0 0 12px 0" } },
-      h("li", {}, h("strong", {}, "步驟 1：在 Mac 上啟動伺服器")),
-      h("div", { style: { background: "rgba(0,0,0,0.2)", padding: "8px", borderRadius: "8px", fontFamily: "monospace", fontSize: "11px", marginBottom: "8px" } },
-        "python3 -m http.server " + httpServerPort + " --bind 0.0.0.0"
-      ),
-      h("li", {}, h("strong", {}, "步驟 2：找出 Mac 的本地 IP")),
-      h("div", { style: { background: "rgba(0,0,0,0.2)", padding: "8px", borderRadius: "8px", fontFamily: "monospace", fontSize: "11px", marginBottom: "8px" } },
-        "ipconfig getifaddr en0"
-      ),
-      h("li", {}, h("strong", {}, "步驟 3：在 iPhone Safari 開啟")),
-      h("div", { style: { background: "rgba(0,0,0,0.2)", padding: "8px", borderRadius: "8px", fontFamily: "monospace", fontSize: "11px", marginBottom: "8px" } },
-        url
-      ),
-      h("li", {}, h("strong", {}, "步驟 4：在 OBS 中捕捉")),
-      h("ul", { style: { paddingLeft: "20px", margin: "6px 0" } },
-        h("li", {}, "選項 A：OBS 新增「瀏覽器」來源，輸入上述 URL"),
-        h("li", {}, "選項 B：安裝 NDI 插件，使用 NDI Tools 傳送 iPhone 畫面"),
-        h("li", {}, "選項 C：使用 QuickTime 捕捉 iPhone 螢幕（AirPlay 或有线）")
-      )
-    ),
-    h("div", { style: { color: "var(--ctp-subtext)", fontSize: "11px", marginTop: "10px" } },
-      "注意：MediaRecorder 的輸出僅在 iPhone 瀏覽器記憶體中，OBS 無法直接抓取，需透過螢幕捕捉或 NDI。"
-    )
-  );
-}
-
-async function openOBSStreamingPanel() {
-  const ip = getLocalIp();
-  const url = `http://${ip}:${httpServerPort}`;
-  
-  const copyBtn = h("button", { 
-    class: "btn",
-    onclick: async () => {
-      try {
-        await navigator.clipboard.writeText(url);
-        notify("已複製 URL 到剪貼簿", { variant: "info", timeoutMs: 2000 });
-      } catch {
-        notify("複製失敗", { variant: "err", timeoutMs: 2000 });
-      }
-    }
-  }, "複製 URL");
-  
-  const openInNewTabBtn = h("button", {
-    class: "btn primary",
-    onclick: () => {
-      window.open(url, "_blank");
-    }
-  }, "在新分頁開啟");
-  
-  await popup(
-    renderOBSStreamingInstructions(),
-    { 
-      title: "OBS 串流設定",
-      okText: "知道了",
-      okClass: "btn"
-    }
-  );
-}
-
-const broadcastState = {
-  ws: null,
-  pc: null,
-  status: "idle", // idle | connecting | broadcasting | error
-};
-
-function renderBroadcastStatus() {
-  const bcToggle = document.querySelector("#bcToggle");
-  const bcStatus = document.querySelector("#bcStatus");
-  const bcIp = document.querySelector("#bcIp");
-  const bcPort = document.querySelector("#bcPort");
-
-  if (!bcToggle || !bcStatus) return;
-
-  switch (broadcastState.status) {
-    case "idle":
-      bcToggle.textContent = "開始廣播";
-      bcToggle.className = "btn primary";
-      bcToggle.disabled = !state.stream;
-      bcStatus.textContent = "狀態：未廣播";
-      bcStatus.className = "tag";
-      if (bcIp) bcIp.disabled = false;
-      if (bcPort) bcPort.disabled = false;
-      break;
-    case "connecting":
-      bcToggle.textContent = "停止廣播";
-      bcToggle.className = "btn";
-      bcToggle.disabled = false;
-      bcStatus.textContent = "狀態：連線中...";
-      bcStatus.className = "tag warning";
-      if (bcIp) bcIp.disabled = true;
-      if (bcPort) bcPort.disabled = true;
-      break;
-    case "broadcasting":
-      bcToggle.textContent = "停止廣播";
-      bcToggle.className = "btn";
-      bcToggle.disabled = false;
-      bcStatus.textContent = "狀態：廣播中 (Live)";
-      bcStatus.className = "tag ok";
-      if (bcIp) bcIp.disabled = true;
-      if (bcPort) bcPort.disabled = true;
-      break;
-    case "error":
-      bcToggle.textContent = "重新連線";
-      bcToggle.className = "btn primary";
-      bcToggle.disabled = !state.stream;
-      bcStatus.textContent = "狀態：連線失敗";
-      bcStatus.className = "tag err";
-      if (bcIp) bcIp.disabled = false;
-      if (bcPort) bcPort.disabled = false;
-      break;
-  }
-}
-
-async function startBroadcast() {
-  if (!state.stream) {
-    notify("請先啟動相機預覽！", { variant: "warning" });
-    return;
-  }
-
-  broadcastState.status = "connecting";
-  renderBroadcastStatus();
-
-  const ip = document.querySelector("#bcIp")?.value || window.location.hostname || "localhost";
-  const port = document.querySelector("#bcPort")?.value || "5175";
-
-  const wsUrl = `ws://${ip}:${port}`;
-  console.log(`Connecting to receiver signaling server: ${wsUrl}`);
-
-  try {
-    broadcastState.ws = new WebSocket(wsUrl);
-  } catch (err) {
-    console.error("WebSocket init failed:", err);
-    broadcastState.status = "error";
-    renderBroadcastStatus();
-    return;
-  }
-
-  broadcastState.ws.onopen = async () => {
-    console.log("WebSocket connected. Registering as sender...");
-    broadcastState.ws.send(JSON.stringify({ type: "register", role: "sender" }));
-    await initWebRtcSender();
-  };
-
-  broadcastState.ws.onmessage = async (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      console.log("Received signaling from receiver:", data.type);
-
-      if (data.type === "answer") {
-        if (broadcastState.pc) {
-          await broadcastState.pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-          broadcastState.status = "broadcasting";
-          renderBroadcastStatus();
-          notify("已成功連線並開始廣播！", { variant: "info" });
-        }
-      } else if (data.type === "candidate") {
-        if (broadcastState.pc) {
-          await broadcastState.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-        }
-      } else if (data.type === "peer_connected") {
-        console.log("Receiver came online, re-negotiating WebRTC...");
-        await negotiateOffer();
-      } else if (data.type === "peer_disconnected") {
-        console.log("Receiver went offline.");
-        broadcastState.status = "connecting";
-        renderBroadcastStatus();
-        if (broadcastState.pc) {
-          broadcastState.pc.close();
-          broadcastState.pc = null;
-        }
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  broadcastState.ws.onclose = () => {
-    console.log("WebSocket closed.");
-    stopBroadcast();
-  };
-
-  broadcastState.ws.onerror = (err) => {
-    console.error("WebSocket error:", err);
-    broadcastState.status = "error";
-    renderBroadcastStatus();
-  };
-}
-
-async function initWebRtcSender() {
-  broadcastState.pc = new RTCPeerConnection({
-    iceServers: [
-      { urls: "stun:stun.l.google.com:19302" }
-    ]
-  });
-
-  broadcastState.pc.onicecandidate = (event) => {
-    if (event.candidate && broadcastState.ws && broadcastState.ws.readyState === WebSocket.OPEN) {
-      broadcastState.ws.send(JSON.stringify({
-        type: "candidate",
-        candidate: event.candidate
-      }));
-    }
-  };
-
-  state.stream.getTracks().forEach((track) => {
-    broadcastState.pc.addTrack(track, state.stream);
-  });
-
-  await negotiateOffer();
-}
-
-async function negotiateOffer() {
-  if (!broadcastState.pc) return;
-
-  const offer = await broadcastState.pc.createOffer();
-  await broadcastState.pc.setLocalDescription(offer);
-
-  broadcastState.ws.send(JSON.stringify({
-    type: "offer",
-    offer: offer
-  }));
-  console.log("Sent offer to receiver.");
-}
-
-function stopBroadcast() {
-  if (broadcastState.ws) {
-    try {
-      broadcastState.ws.close();
-    } catch (e) {}
-    broadcastState.ws = null;
-  }
-  if (broadcastState.pc) {
-    try {
-      broadcastState.pc.close();
-    } catch (e) {}
-    broadcastState.pc = null;
-  }
-  broadcastState.status = "idle";
-  renderBroadcastStatus();
-}
-
-function toggleBroadcast() {
-  if (broadcastState.status === "idle" || broadcastState.status === "error") {
-    startBroadcast().catch((err) => {
-      console.error(err);
-      broadcastState.status = "error";
-      renderBroadcastStatus();
-    });
-  } else {
-    stopBroadcast();
-    notify("已停止廣播。", { variant: "info" });
-  }
-}
-
 function render() {
   const hasGum = !!navigator.mediaDevices?.getUserMedia;
   const hasMR = !!window.MediaRecorder;
@@ -1266,23 +980,6 @@ function render() {
               h("option", { value: "frappe", selected: state.flavor === "frappe" }, "Frappé"),
               h("option", { value: "mocha", selected: state.flavor === "mocha" }, "Mocha"),
               h("option", { value: "espresso", selected: state.flavor === "espresso" }, "Espresso")
-            )
-          )
-        ),
-        h(
-          "div",
-          { class: "theme" },
-          h(
-            "div",
-            { class: "pill" },
-            h(
-              "button",
-              {
-                class: "btn",
-                onclick: openOBSStreamingPanel,
-                style: { border: "none", background: "none", padding: "6px 8px", cursor: "pointer" }
-              },
-              "📡 OBS 串流設定"
             )
           )
         )
@@ -1424,68 +1121,6 @@ function render() {
                 "播放全螢幕"
               )
             )
-          )
-        )
-      ),
-      h(
-        "div",
-        { id: "broadcastCard", class: "card", style: { marginTop: "16px" } },
-        h(
-          "header",
-          {},
-          h("h2", {}, "📡 區域網路廣播 (Tauri Receiver / NDI)"),
-          h("div", { class: "meta" }, "Low-latency WebRTC streaming")
-        ),
-        h(
-          "div",
-          { class: "body" },
-          h(
-            "div",
-            { class: "row" },
-            h(
-              "div",
-              { class: "field" },
-              h("label", { for: "bcIp" }, "接收端 IP 位址 (Tauri App)"),
-              h("input", {
-                id: "bcIp",
-                type: "text",
-                value: window.location.hostname || "localhost",
-                placeholder: "例如 192.168.1.10"
-              })
-            ),
-            h(
-              "div",
-              { class: "field small" },
-              h("label", { for: "bcPort" }, "連接埠 (Port)"),
-              h("input", {
-                id: "bcPort",
-                type: "number",
-                value: "5175"
-              })
-            )
-          ),
-          h(
-            "div",
-            { class: "row", style: { marginTop: "12px", alignItems: "center" } },
-            h(
-              "button",
-              {
-                id: "bcToggle",
-                class: "btn primary",
-                onclick: toggleBroadcast
-              },
-              "開始廣播"
-            ),
-            h(
-              "span",
-              { id: "bcStatus", class: "tag" },
-              "狀態：未廣播"
-            )
-          ),
-          h(
-            "div",
-            { class: "hint", style: { marginTop: "10px" } },
-            "提示：請先啟動相機預覽，然後輸入電腦端 Tauri 接收程式顯示的 IP 後，點選開始廣播。"
           )
         )
       ),
